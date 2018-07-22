@@ -12,7 +12,8 @@ from server.tf_graph import FaceRecGraph
 import sys
 
 PORT = 8080
-HOST = 'localhost'
+HOST = 'localhost'  #'192.168.1.107'
+RECEIVE_BUFFER = 4096
 
 def findPeople(features_arr, positions, thres = 0.6, percent_thres = 70):
     '''
@@ -39,16 +40,12 @@ def findPeople(features_arr, positions, thres = 0.6, percent_thres = 70):
             result = "Unknown"
         returnRes.append((result,percentage))
     return returnRes
-FRGraph = FaceRecGraph();
-aligner = AlignCustom();
-extract_feature = FaceFeature(FRGraph)
-face_detect = MTCNNDetect(FRGraph, scale_factor=2); #scale_factor, rescales image for faster detection
 
 
 if __name__ == "__main__":
     # load the model
-    FRGraph = FaceRecGraph();
-    aligner = AlignCustom();
+    FRGraph = FaceRecGraph()
+    aligner = AlignCustom()
     extract_feature = FaceFeature(FRGraph)
     face_detect = MTCNNDetect(FRGraph, scale_factor=2);  # scale_factor, rescales image for faster detection
 
@@ -68,10 +65,16 @@ if __name__ == "__main__":
             while True:
                 l = connection.recv(4)
                 l = int(struct.unpack("I", l)[0])
-                received = connection.recv(l).decode()
+                l_left = l
+                received = ""
+                count = 1
+                received = connection.recv(l)
+
+                received = struct.unpack("{}s".format(l), received)[0].decode()
                 if (received == "Done"):
                     print("Done")
                     break
+
                 frame = np.array(json.loads(received), np.uint8)
 
                 rects, landmarks = face_detect.detect_face(frame, 80);  # min face size is set to 80x80
@@ -96,11 +99,6 @@ if __name__ == "__main__":
 
                 data = json.dumps(recog_data)
                 print("result = ", data)
-                try:
-                    json.loads(data)
-                except Exception as e:
-                    print(e)
-                    exit(-1)
                 connection.sendall(struct.pack("I", len(data)))
-                connection.sendall(data.encode())
+                connection.sendall(struct.pack("{}s".format(len(data)), data.encode()))
                 

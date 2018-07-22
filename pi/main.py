@@ -7,6 +7,7 @@ import json
 import struct
 import numpy as np
 
+RECEIVE_BUFFER = 4096
 ONE_SECOND = 1
 RECOG_TIME = 10
 RECOG_MIN_PERCENT = 0.5
@@ -61,17 +62,17 @@ if __name__ == "__main__":
             while time_elapsed < RECOG_TIME:
                 time_elapsed = time.time() - time_start
                 data = json.dumps(take_pic(cap).tolist())
-                try:
-                    json.loads(data)
-                except Exception as e:
-                    print(e)
-                    exit(-1)
                 sock.sendall(struct.pack("I", len(data)))
-                sock.sendall(data.encode())
+                sock.sendall(struct.pack("{}s".format(len(data)), data.encode()))
+
 
                 l = sock.recv(4)
                 l = int(struct.unpack("I", l)[0])
-                result = json.loads(sock.recv(l).decode())
+
+                received = sock.recv(l)
+                received = struct.unpack("{}s".format(l), received)[0].decode()
+
+                result = json.loads(received)
                 print(result)
             end_message = "Done"
             sock.sendall(struct.pack("I", len(end_message)))
